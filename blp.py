@@ -1,3 +1,6 @@
+
+
+
 import os
 import numpy as np
 import scipy.io as io
@@ -11,8 +14,8 @@ class BLP():
         ps2 = io.loadmat('ps2.mat')
         iv = io.loadmat('iv.mat')
         
-        # x1 variables enter the linear part of the estimation and include price
-        # variable and 24 brand dummies. 
+        # x1 variables enter the linear part of the estimation and include the 
+        # price variable and 24 brand dummies. 
         self.x1 = ps2['x1']
         
         # x2 variables enter the non-linear part and include a constant, price,
@@ -112,7 +115,7 @@ class BLP():
             temp1 = gmmresid.T*self.IV
             f = temp1*self.invA*temp1.T
         print 'gmm objective:',f[0,0]
-        self.gmmvalnew = f
+        self.gmmvalnew = f[0,0]
         self.gmmdiff = np.abs(self.gmmvalold - self.gmmvalnew)
         self.gmmvalold = self.gmmvalnew
         return(f[0,0])
@@ -140,7 +143,7 @@ class BLP():
             avgnorm = np.mean(t)
             self.d_old = self.d_new
             i+=1
-        print '# of iterations for delta convergence:',i   
+        print '# of iterations for delta convergence:',i
         return np.log(self.d_new)
 
     def mufunc(self,theta2w):
@@ -173,4 +176,4 @@ class BLP():
 if __name__ == '__main__':
     blp = BLP()
     init_theta = blp.init_theta()
-    res = optimize.fmin(blp.gmmobj,init_theta[0],(init_theta[1],init_theta[2]))
+    res = optimize.fmin(blp.gmmobj,init_theta[0],(init_theta[1],init_theta[2]),maxiter=1e7)
