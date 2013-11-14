@@ -1,11 +1,9 @@
-
-
-
 import os
 import numpy as np
 import scipy.io as io
 import pandas as pd
 from scipy import optimize
+os.chdir('/home/zubin/blp/')
 
 class BLP():
     def __init__(self):
@@ -28,16 +26,16 @@ class BLP():
         # Random draws. For each market 80 iid normal draws are provided.
         # They correspond to 20 "individuals", where for each individual
         # there is a different draw for each column of x2. 
-        v = ps2['v']
+        self.v = ps2['v']
 
         # draws of demographic variables from the CPS for 20 individuals in each
         # market. The first 20 columns give the income, the next 20 columns the
         # income squared, columns 41 through 60 are age and 61 through 80 are a
         # child dummy variable. 
-        demogr = ps2['demogr']
+        self.demogr = ps2['demogr']
 
-        self.vfull = np.array([np.repeat(i,24).reshape(80,24) for i in v]).swapaxes(1,2).reshape(2256,80)
-        self.dfull = np.array([np.repeat(i,24).reshape(80,24) for i in demogr]).swapaxes(1,2).reshape(2256,80)
+        self.vfull = np.array([np.repeat(i,24).reshape(80,24) for i in self.v]).swapaxes(1,2).reshape(2256,80)
+        self.dfull = np.array([np.repeat(i,24).reshape(80,24) for i in self.demogr]).swapaxes(1,2).reshape(2256,80)
         
         self.IV = np.matrix(np.concatenate((iv['iv'][:,1:],self.x1[:,1:].todense()),1))
 
@@ -92,9 +90,9 @@ class BLP():
         ##% create a vector of the non-zero elements in the above matrix, and the %
         ##% corresponding row and column indices. this facilitates passing values % 
         ##% to the functions below. %
-        theti, thetj = list(np.where(theta2w!=0))
-        theta2 = theta2w[np.where(theta2w!=0)]
-        return [theta2,theti,thetj]
+        self.theti, self.thetj = list(np.where(theta2w!=0))
+        self.theta2 = theta2w[np.where(theta2w!=0)]
+        return [self.theta2,self.theti,self.thetj]
 
 ##        self.theta2w = pd.DataFrame(theta2w, index = ['constant','price','sugar','mushy'],
 ##                               columns = ['F','int.income','int.income_sq','int.age',
@@ -111,8 +109,8 @@ class BLP():
             temp1 = self.x1.T*self.IV
             temp2 = delta.T*self.IV
             self.theta1 = np.linalg.inv(temp1*self.invA*temp1.T)*temp1*self.invA*temp2.T
-            gmmresid = delta - self.x1*self.theta1
-            temp1 = gmmresid.T*self.IV
+            self.gmmresid = delta - self.x1*self.theta1
+            temp1 = self.gmmresid.T*self.IV
             f = temp1*self.invA*temp1.T
         print 'gmm objective:',f[0,0]
         self.gmmvalnew = f[0,0]
@@ -167,13 +165,65 @@ class BLP():
         eg = np.multiply(self.expmu,np.kron(np.ones((1,self.ns)),self.d_old))
         temp = np.cumsum(eg,0)
         sum1 = temp[self.cdindex,:]
-        for i in range(1,sum1.shape[1]):
-            sum1[1:sum1.shape[0],i] = np.diff(sum1[:,i].T).T
-        denom1 = 1. / (1.+sum1)
+        sum2=sum1
+        sum2[1:sum2.shape[0],:] = np.diff(sum1.T).T
+        denom1 = 1. / (1.+sum2)
         denom = denom1[self.cdid,:]
         return np.multiply(eg,denom)
 
+    def jacob(self,mval,theta2w):
+        self.expmu = np.exp(self.mufunc(theta2w))
+        shares = self.ind_sh()
+        n,K = self.x2.shape
+        J = theta2w.shape[1]-1
+        f1 = np.zeros((self.cdid.shape[0],K*(J+1)))
+
+        for i in range(K):
+            xv = np.multiply(self.x2[:,i].reshape(self.nbrn*self.nmkt,1)*np.ones((1,self.ns)),self.v[self.cdid,self.ns*i:self.ns*(i+1)])
+            temp = np.cumsum(np.multiply(xv,shares),0)
+            sum1 = temp[self.cdindex,:]
+            sum1[1:sum1.shape[0],:] = np.diff(sum1.T).T
+            f1[:,i] = (np.mean((np.multiply(shares,xv-sum1[self.cdid,:])).T,0).T).flatten()
+
+        for j in range(J):
+            d = self.demogr[self.cdid,self.ns*j:(self.ns*(j+1))]   
+            temp1 = np.zeros((self.cdid.shape[0],K))
+            for i in range(K):
+                xd = np.multiply(self.x2[:,i].reshape(self.nbrn*self.nmkt,1)*np.ones((1,self.ns)),d)
+                temp = np.cumsum(np.multiply(xd,shares),0)
+                sum1 = temp[self.cdindex,:]
+                sum1 [1:sum1.shape[0],:] = np.diff(sum1.T).T
+                temp1[:,i] = (np.mean((np.multiply(shares,xd-sum1[self.cdid,:])).T,0).T).flatten()
+            f1[:,(K*(j+1)):(K*(j+2))] = temp1
+
+        rel = self.theti + (self.thetj - 1) * max(self.theti)
+        rel = np.array([0,1,2,3,4,5,6,7,9,12,14,15,17]).flatten()
+        f = np.zeros((self.cdid.shape[0],rel.shape[0]))
+        n = 0
+
+        for i in range(self.cdindex.shape[0]):
+            temp = shares[n:(self.cdindex[i]+1),:]
+            H1 = temp*temp.T
+            H = (np.diag(np.array(sum(temp.T)).flatten()) - H1)/self.ns
+            f[n:(self.cdindex[i]+1),:] = - np.linalg.inv(H)*f1[n:(self.cdindex[i]+1),rel]
+            n = self.cdindex[i] + 1
+            
+        return f
+
+    def varcov(self):
+        N = self.x1.shape[0]
+        Z = self.IV.shape[1]
+        theta2w = np.zeros((max(self.theti)+1,max(self.thetj)+1))
+        for ind in range(len(self.theti)):
+                theta2w[self.theti[ind],self.thetj[ind]]=self.theta2[ind]
+        temp = self.jacob(self.d_old,theta2w)
+        a = np.concatenate((self.x1.todense(),temp),1).T*self.IV
+        IVres = np.multiply(self.IV,self.gmmresid*np.ones((1,Z)))
+        b = IVres.T * IVres
+        f = np.linalg.inv(a*self.invA*a.T)*a*self.invA*b*self.invA*a.T*np.linalg.inv(a*self.invA*a.T)
+        return f
+        
 if __name__ == '__main__':
     blp = BLP()
     init_theta = blp.init_theta()
-    res = optimize.fmin(blp.gmmobj,init_theta[0],(init_theta[1],init_theta[2]),maxiter=1e7)
+    blp.theta2 = optimize.fmin(blp.gmmobj,init_theta[0],(init_theta[1],init_theta[2]),maxiter=1e7)
