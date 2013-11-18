@@ -3,7 +3,6 @@ import numpy as np
 import scipy.io as io
 import pandas as pd
 from scipy import optimize
-os.chdir('/home/zubin/blp/')
 
 class BLP():
     def __init__(self):
@@ -54,22 +53,20 @@ class BLP():
         ##cdindex = [nbrn:nbrn:nbrn*nmkt]';
         self.cdindex = np.array([i for i in xrange((self.nbrn-1),self.nbrn*self.nmkt,self.nbrn)])
 
-        ##% create weight matrix
+        ## create weight matrix
         self.invA = np.linalg.inv(self.IV.T * self.IV)
-
-        ## Logit results and save the mean utility as initial values for the search below
-
+        
         ## compute the outside good market share by market
         temp = np.cumsum(self.s_jt)
         sum1 = temp[self.cdindex]
         sum1[1:] = np.diff(sum1)
         outshr = np.array([np.repeat(1-i,24) for i in sum1]).reshape(len(temp),1)
-
+        
+        ## compute logit results and save the mean utility as initial values for the search below
         y = np.log(self.s_jt) - np.log(outshr)
         mid = self.x1.T*self.IV*self.invA*self.IV.T
         t = np.linalg.inv(mid*self.x1)*mid*y
         self.d_old = self.x1*t
-    ##    oldt2 = np.zeros(theta2.shape)
         self.d_old = np.exp(self.d_old)
 
         self.gmmvalold = 0
