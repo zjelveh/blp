@@ -33,17 +33,17 @@ class BLP():
         # child dummy variable. 
         self.demogr = ps2['demogr']
 
-        self.vfull = np.array([np.repeat(i,24).reshape(80,24) for i in self.v]).swapaxes(1,2).reshape(2256,80)
-        self.dfull = np.array([np.repeat(i,24).reshape(80,24) for i in self.demogr]).swapaxes(1,2).reshape(2256,80)
+        self.vfull = np.array([np.repeat(i, 24).reshape(80, 24) for i in self.v]).swapaxes(1, 2).reshape(2256, 80)
+        self.dfull = np.array([np.repeat(i, 24).reshape(80, 24) for i in self.demogr]).swapaxes(1, 2).reshape(2256, 80)
         
-        self.IV = np.matrix(np.concatenate((iv['iv'][:,1:],self.x1[:,1:].todense()),1))
+        self.IV = np.matrix(np.concatenate((iv['iv'][:, 1:], self.x1[:, 1:].todense()), 1))
 
         self.ns = 20       # number of simulated "indviduals" per market 
         self.nmkt = 94     # number of markets = (# of cities)*(# of quarters)  
         self.nbrn = 24     # number of brands per market. if the numebr differs by market this requires some "accounting" vector
 
         # this vector relates each observation to the market it is in
-        self.cdid = np.kron(np.array([i for i in range(self.nmkt)],ndmin=2).T,np.ones((self.nbrn,1)))
+        self.cdid = np.kron(np.array([i for i in range(self.nmkt)], ndmin=2).T, np.ones((self.nbrn, 1)))
         self.cdid = self.cdid.reshape(self.cdid.shape[0]).astype('int')
 
         ## this vector provides for each index the of the last observation 
@@ -51,7 +51,7 @@ class BLP():
         ## is not the case the two vectors, cdid and cdindex, have to be   
         ## created in a different fashion but the rest of the program works fine.
         ##cdindex = [nbrn:nbrn:nbrn*nmkt]';
-        self.cdindex = np.array([i for i in xrange((self.nbrn-1),self.nbrn*self.nmkt,self.nbrn)])
+        self.cdindex = np.array([i for i in xrange((self.nbrn - 1),self.nbrn * self.nmkt, self.nbrn)])
 
         ## create weight matrix
         self.invA = np.linalg.inv(self.IV.T * self.IV)
@@ -60,13 +60,13 @@ class BLP():
         temp = np.cumsum(self.s_jt)
         sum1 = temp[self.cdindex]
         sum1[1:] = np.diff(sum1)
-        outshr = np.array([np.repeat(1-i,24) for i in sum1]).reshape(len(temp),1)
+        outshr = np.array([np.repeat(1 - i, 24) for i in sum1]).reshape(len(temp), 1)
         
         ## compute logit results and save the mean utility as initial values for the search below
         y = np.log(self.s_jt) - np.log(outshr)
-        mid = self.x1.T*self.IV*self.invA*self.IV.T
-        t = np.linalg.inv(mid*self.x1)*mid*y
-        self.d_old = self.x1*t
+        mid = self.x1.T * self.IV * self.invA * self.IV.T
+        t = np.linalg.inv(mid * self.x1) * mid * y
+        self.d_old = self.x1 * t
         self.d_old = np.exp(self.d_old)
 
         self.gmmvalold = 0
@@ -80,18 +80,18 @@ class BLP():
         ## The rows are coefficients for the constant, price, sugar, and mushy
         ## dummy, respectively. The columns represent F, and interactions with
         ## income, income squared, age, and child.
-        theta2w =  np.array([0.3302,5.4819,0,0.2037,0,
-                     2.4526,15.8935,-1.2000,0,2.6342,
-                     0.0163,-0.2506,0,0.0511,0,
-                     0.2441,1.2650,0,-0.8091,0],ndmin=2)
-        theta2w = theta2w.reshape((4,5))
+        theta2w =  np.array([0.3302, 5.4819, 0, 0.2037, 0,
+                             2.4526, 15.8935, -1.2000, 0, 2.6342,
+                             0.0163, -0.2506, 0, 0.0511, 0,
+                             0.2441, 1.2650, 0, -0.8091, 0], ndmin=2)
+        theta2w = theta2w.reshape((4, 5))
 
         ##% create a vector of the non-zero elements in the above matrix, and the %
         ##% corresponding row and column indices. this facilitates passing values % 
         ##% to the functions below. %
-        self.theti, self.thetj = list(np.where(theta2w!=0))
-        self.theta2 = theta2w[np.where(theta2w!=0)]
-        return [self.theta2,self.theti,self.thetj]
+        self.theti, self.thetj = list(np.where(theta2w != 0))
+        self.theta2 = theta2w[np.where(theta2w != 0)]
+        return [self.theta2, self.theti, self.thetj]
 
 ##        self.theta2w = pd.DataFrame(theta2w, index = ['constant','price','sugar','mushy'],
 ##                               columns = ['F','int.income','int.income_sq','int.age',
@@ -99,7 +99,7 @@ class BLP():
 
     def gmmobj(self, theta2, theti, thetj):
         # compute GMM objective function
-        delta = self.meanval(theta2,theti,thetj)
+        delta = self.meanval(theta2, theti, thetj)
         
         ##% the following deals with cases where the min algorithm drifts into region where the objective is not defined
         if max(np.isnan(delta)) == 1:
@@ -118,7 +118,7 @@ class BLP():
         self.gmmvalnew = f[0,0]
         self.gmmdiff = np.abs(self.gmmvalold - self.gmmvalnew)
         self.gmmvalold = self.gmmvalnew
-        return(f[0,0])
+        return(f[0, 0])
 
     def meanval(self, theta2, theti, thetj):
         if self.gmmdiff < 1e-6:
@@ -130,7 +130,7 @@ class BLP():
         norm = 1
         avgnorm = 1
         i = 0
-        theta2w = np.zeros((max(theti)+1,max(thetj)+1))
+        theta2w = np.zeros((max(theti) + 1,max(thetj) + 1))
         for ind in range(len(theti)):
                 theta2w[theti[ind], thetj[ind]] = theta2[ind]
         self.expmu = np.exp(self.mufunc(theta2w))
@@ -148,12 +148,13 @@ class BLP():
     def mufunc(self, theta2w):
         n,k = self.x2.shape
         j = theta2w.shape[1]-1
-        mu = np.zeros((n,self.ns))
+        mu = np.zeros((n, self.ns))
         for i in range(self.ns):
-            v_i = self.vfull[:,np.arange(i,k*self.ns,self.ns)]
-            d_i = self.dfull[:,np.arange(i,j*self.ns,self.ns)]
-            temp = d_i*np.matrix(theta2w[:,1:(j+1)].T)
-            mu[:,i]=(((np.multiply(self.x2,v_i)*theta2w[:,0])+np.multiply(self.x2,temp))*np.ones((k,1))).flatten()
+            v_i = self.vfull[:, np.arange(i, k * self.ns, self.ns)]
+            d_i = self.dfull[:, np.arange(i, j * self.ns, self.ns)]
+            temp = d_i * np.matrix(theta2w[:, 1:(j+1)].T)
+            mu[:, i]=(((np.multiply(self.x2, v_i) * theta2w[:, 0]) +
+                      np.multiply(self.x2, temp)) * np.ones((k, 1))).flatten()
         return mu
 
     def mktsh(self):
@@ -232,10 +233,10 @@ class BLP():
     def iterate_optimization(self, opt_func, param_vec, args=(), method='Nelder-Mead'):
         success = False
         while not success:
-            blp.theta2 = minimize(opt_func, param_vec, args=args, method=method)
-            param_vec = blp.theta2
+            res = minimize(opt_func, param_vec, args=args, method=method)
+            param_vec = res.x
             if res.success:
-                return res
+                return res.x
             
 if __name__ == '__main__':
     blp = BLP()
