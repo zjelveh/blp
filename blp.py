@@ -174,7 +174,6 @@ class BLP():
         return np.multiply(eg, denom)
 
     def jacob(self, *args):
-        print 'in jacob'
         theta2w = np.zeros((max(self.theti) + 1, max(self.thetj) + 1))
         for ind in range(len(self.theti)):
             theta2w[self.theti[ind], self.thetj[ind]] = self.theta2[ind]
