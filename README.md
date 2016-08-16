@@ -8,3 +8,5 @@ Comments in the code partially adapted from <a href ="http://faculty.wcas.northw
 as well as the <a href="http://emlab.berkeley.edu/users/bhhall/e220c/readme.html">description of the input data</a> from Bronwyn Hall.
 
 TODO: Test jacobian function -- most likely incorrect.
+
+UPDATE 8/2016: It was brought to my attention that current version of the code does not reproduce Nevo's results. Hope to dig into this but probably won't happen until the new year.
